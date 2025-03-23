@@ -24,7 +24,7 @@ A powerful tool that records conversations, transcribes them with speaker recogn
 ### Hardware Requirements
 - Microphone (for audio recording)
 - Speakers/Headphones (for audio playback)
-- Minimum 8GB RAM
+- Minimum 16GB RAM
 - 50GB free disk space
 - CPU: Dual-core processor or better
 
