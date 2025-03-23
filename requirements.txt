@@ -1,0 +1,22 @@
+# Audio processing
+pyaudio==0.2.13
+wave==0.0.2
+numpy>=1.20.0
+soundfile>=0.12.1
+librosa>=0.10.0
+
+# Transcription
+openai-whisper>=20231117  # Local Whisper for transcription
+torch>=2.0.0
+pyannote.audio>=3.0.0  # For speaker diarization
+transformers>=4.30.0
+
+# Summarization and API
+requests>=2.31.0  # For Ollama API communication
+
+# UI
+streamlit>=1.28.0
+
+# Utils
+python-dotenv>=1.0.0
+keyring>=24.0.0
