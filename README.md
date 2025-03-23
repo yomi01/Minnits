@@ -75,7 +75,7 @@ A powerful tool that records conversations, transcribes them with speaker recogn
      ```
      HUGGINGFACE_TOKEN=your_huggingface_token  # Optional, for speaker diarization
      OLLAMA_HOST=http://localhost:11434  # Ollama API endpoint
-     OLLAMA_MODEL=gemma:12b  # Default model for summarization
+     OLLAMA_MODEL=gemma3:12b  # Default model for summarization
      ```
 
 ### Environment Setup
