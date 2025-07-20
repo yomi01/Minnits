@@ -2,7 +2,33 @@ import os
 import sys
 import argparse
 import subprocess
+import time
+import signal
+import atexit
 from utils.api_keys import initialize_api_keys, prompt_for_api_keys
+
+# Global cleanup function for signal handling
+def cleanup_on_exit():
+    """Clean up resources on application exit"""
+    try:
+        from summarization.summarizer import ConversationSummarizer
+        ConversationSummarizer.cleanup_all_instances()
+    except ImportError:
+        pass  # Module might not be imported yet
+
+# Signal handler for graceful shutdown
+def signal_handler(signum, frame):
+    """Handle shutdown signals to clean up resources"""
+    print(f"\nReceived shutdown signal, cleaning up...")
+    cleanup_on_exit()
+    sys.exit(0)
+
+# Register signal handlers and exit cleanup
+signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
+if hasattr(signal, 'SIGBREAK'):  # Windows
+    signal.signal(signal.SIGBREAK, signal_handler)
+atexit.register(cleanup_on_exit)
 
 def main():
     """
@@ -39,6 +65,12 @@ def main():
     )
     
     parser.add_argument(
+        '--document',
+        metavar='DOCUMENT_FILE',
+        help='Process a document file (DOCX, TXT, JSON) for summarization (CLI mode)'
+    )
+    
+    parser.add_argument(
         '--summarize',
         metavar='TRANSCRIPT_FILE',
         help='Summarize a transcript JSON file (CLI mode)'
@@ -49,6 +81,13 @@ def main():
         metavar='OUTPUT_DIR',
         default='output',
         help='Output directory for files (CLI mode)'
+    )
+    
+    parser.add_argument(
+        '--format',
+        choices=['json', 'docx', 'txt', 'all'],
+        default='json',
+        help='Output format for summaries: json (default), docx, txt, or all'
     )
     
     parser.add_argument(
@@ -67,6 +106,26 @@ def main():
         '--setup-keys',
         action='store_true',
         help='Set up HuggingFace token and Ollama configuration'
+    )
+    
+    parser.add_argument(
+        '--focus',
+        metavar='FOCUS_AREAS',
+        nargs='*',  # Allow multiple focus areas
+        help='Specific areas to focus on in the summary (e.g., --focus "budget" "timeline" "risks")'
+    )
+    
+    parser.add_argument(
+        '--detailed',
+        action='store_true',
+        help='Use detailed meeting minutes format (default: True). Use --no-detailed for simple format'
+    )
+    
+    parser.add_argument(
+        '--no-detailed',
+        dest='detailed',
+        action='store_false',
+        help='Use simple summary format instead of detailed meeting minutes'
     )
     
     args = parser.parse_args()
@@ -104,10 +163,8 @@ def main():
         subprocess.run([sys.executable, '-m', 'streamlit', 'run', ui_path])
         return
     
-    # CLI mode for recording
-    if args.record:
+    # CLI mode for recording    if args.record:
         from audio_processing.recorder import AudioRecorder
-        import time
         
         print(f"Recording for {args.duration} seconds...")
         recorder = AudioRecorder(output_dir=args.output)
@@ -167,7 +224,45 @@ def main():
         
         # Ask if user wants to summarize the transcript
         if input("Summarize this transcript? (y/n): ").lower() == 'y':
-            args.summarize = transcript_file
+            args.summarize = transcript_file    # CLI mode for document processing and summarization
+    if args.document:
+        from document_processing.reader import DocumentReader
+        import json
+        
+        document_file = args.document
+        if not os.path.exists(document_file):
+            print(f"Error: Document file not found: {document_file}")
+            return
+        
+        print(f"Processing document {document_file}...")
+        doc_reader = DocumentReader()
+        try:
+            # Read the document
+            transcript_data = doc_reader.read_document(file_path=document_file)
+              # Show document info
+            print(f"Document format: {transcript_data.get('format', 'unknown').upper()}")
+            if 'metadata' in transcript_data:
+                meta = transcript_data['metadata']
+                print(f"Word count: {meta.get('word_count', 'N/A'):,}")
+                print(f"Character count: {meta.get('character_count', 'N/A'):,}")
+                if 'total_paragraphs' in meta:
+                    print(f"Paragraphs: {meta['total_paragraphs']}")
+            
+            # Save processed document as transcript
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            transcript_file = os.path.join(args.output, f"document_transcript_{timestamp}.json")
+            
+            with open(transcript_file, 'w', encoding='utf-8') as f:
+                json.dump(transcript_data, f, indent=2, ensure_ascii=False)
+            print(f"Document processed and saved as: {transcript_file}")
+            
+            # Ask if user wants to summarize the document
+            if input("Summarize this document? (y/n): ").lower() == 'y':
+                args.summarize = transcript_file
+                
+        except Exception as e:
+            print(f"Error processing document: {e}")
+            return
     
     # CLI mode for summarization
     if args.summarize:
@@ -188,15 +283,43 @@ def main():
             ollama_host=keys["ollama_host"],
             ollama_model=keys["ollama_model"]
         )
-        summary = summarizer.summarize(transcript)
         
-        # Save summary to output directory
+        try:
+            # Prepare focus areas for the summarizer
+            focus_areas = args.focus if args.focus else None
+            if focus_areas:
+                print(f"Focus areas: {', '.join(focus_areas)}")
+            
+            # Set detailed format preference (default True unless --no-detailed was specified)
+            use_detailed_format = getattr(args, 'detailed', True)
+            
+            print(f"Using {'detailed meeting minutes' if use_detailed_format else 'simple summary'} format")
+            
+            # Generate summary with focus areas and format preference
+            summary = summarizer.summarize(
+                transcript, 
+                focus_areas=focus_areas, 
+                use_detailed_format=use_detailed_format
+            )
+        finally:
+            # Always clean up the summarizer instance
+            summarizer.cleanup()
+        
+        # Save summary using the new formatter
+        from summarization.formatter import SummaryFormatter
+        
+        formatter = SummaryFormatter()
         filename = os.path.splitext(os.path.basename(transcript_file))[0]
-        summary_file = os.path.join(args.output, f"{filename}_summary.json")
-        with open(summary_file, 'w') as f:
-            json.dump(summary, f, indent=2)
+        output_base = os.path.join(args.output, f"{filename}_summary")
         
-        print(f"Summary saved to {summary_file}")
+        if args.format == 'all':
+            saved_files = formatter.save_multiple_formats(summary, output_base)
+            print("Summary saved in multiple formats:")
+            for fmt, file_path in saved_files.items():
+                print(f"  {fmt.upper()}: {file_path}")
+        else:
+            summary_file = formatter.save_summary(summary, output_base, args.format)
+            print(f"Summary saved to {summary_file}")
         
         # Display summary
         print("\nSummary:")

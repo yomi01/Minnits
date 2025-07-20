@@ -10,9 +10,11 @@ A powerful tool that records conversations, transcribes them with speaker recogn
 - 📝 **Transcription**: Convert speech to text with high accuracy using OpenAI Whisper
 - 📄 **Text Upload**: Upload existing transcripts or text files for summarization
 - 📊 **Summarization**: Create concise summaries of conversations or uploaded text
+- 📋 **Detailed Meeting Minutes**: Professional meeting minutes format with structured sections
 - ✅ **Action Items**: Extract action points and tasks mentioned during the conversation
 - 🖥️ **User Interface**: Clean and intuitive Streamlit interface with multiple tabs
 - 🔄 **Command Line Interface**: Support for CLI operations for automation
+- 🧠 **GPU Memory Management**: Automatic cleanup of LLM models from GPU memory when app closes
 
 ## System Requirements
 
@@ -40,6 +42,27 @@ A powerful tool that records conversations, transcribes them with speaker recogn
 ### Network Requirements
 - Internet connection (for model downloads and Ollama updates)
 - Access to HuggingFace API (optional, for speaker diarization)
+
+## GPU Memory Management
+
+This application now includes automatic GPU memory management to prevent Ollama models from staying loaded in GPU memory after the app closes:
+
+### Automatic Cleanup
+- **On App Shutdown**: Models are automatically unloaded when the application terminates (CLI or UI)
+- **Signal Handling**: Properly handles Ctrl+C, termination signals, and Windows break signals
+- **Instance Tracking**: Tracks all active ConversationSummarizer instances for cleanup
+
+### Manual Control (UI)
+- **GPU Memory Status**: View the number of active LLM instances in the sidebar
+- **Free GPU Memory Button**: Manually unload all models from GPU memory
+- **Real-time Monitoring**: See active instance count and cleanup status
+
+### Technical Details
+- Uses Ollama's `keep_alive=0` parameter to immediately unload models
+- Fallback mechanism loads a tiny model to free GPU memory if primary method fails
+- Cleanup happens automatically on module destruction and application exit
+
+This ensures optimal GPU memory usage and prevents memory leaks when switching between different models or closing the application.
 
 ## Installation
 
@@ -160,6 +183,145 @@ python main.py --record --duration 600 --model base --output my_meeting
 ```
 
 This will record for 10 minutes, transcribe the audio, and generate a summary, saving all files to the `my_meeting` directory.
+
+## Focus Areas Feature
+
+The note summarizer now supports **focus areas** - you can specify specific topics or areas that you want the summary to emphasize. This helps create more targeted and relevant summaries based on your needs.
+
+### Using Focus Areas
+
+#### Command Line Interface (CLI)
+Use the `--focus` parameter to specify areas to focus on:
+
+```bash
+# Focus on specific topics
+python main.py --summarize transcript.json --focus "budget" "timeline" "risks"
+
+# Focus on a single topic
+python main.py --transcribe audio.wav --focus "action items"
+
+# Multiple focus areas with document processing
+python main.py --document meeting_notes.docx --focus "decisions" "next steps" "deadlines"
+```
+
+#### Streamlit Web Interface
+1. **Upload Tab**: Enter focus areas in the "Focus Areas" text input field (comma-separated)
+2. **Recording Tab**: Specify focus areas before clicking "Transcribe & Summarize"
+
+### Examples of Focus Areas
+- **Business Meetings**: "budget", "timeline", "action items", "decisions", "risks"
+- **Product Planning**: "features", "deadlines", "resources", "priorities"  
+- **Academic Sessions**: "key concepts", "assignments", "exam topics"
+- **Project Reviews**: "progress", "blockers", "next steps", "deliverables"
+
+### How It Works
+When you specify focus areas, the AI will:
+- Pay particular attention to those topics in the conversation
+- Emphasize relevant information in the summary
+- Ensure action items related to focus areas are highlighted
+- Structure the summary to prioritize your specified areas
+
+## Detailed Meeting Minutes Format
+
+The note summarizer now supports a **detailed meeting minutes format** that creates professional, structured summaries similar to formal meeting minutes. This feature uses LangChain prompt templates for enhanced quality and consistency.
+
+### Features of Detailed Format
+
+The detailed format provides:
+- **Meeting Overview**: Date, time, purpose, and key participants
+- **Discussion Highlights**: Summary of main topics with critical points
+- **Decisions Made**: Bullet points of decisions and agreements
+- **Action Items**: Tasks with responsible persons and deadlines
+- **Next Steps/Follow-Up**: Upcoming meetings and unresolved items
+
+### Using Detailed Format
+
+#### Command Line Interface (CLI)
+The detailed format is now the **default** for all summarization:
+
+```bash
+# Use detailed format (default)
+python main.py --summarize transcript.json
+
+# Explicitly request detailed format
+python main.py --summarize transcript.json --detailed
+
+# Use simple format instead
+python main.py --summarize transcript.json --no-detailed
+
+# Combine with focus areas
+python main.py --summarize transcript.json --focus "budget" "timeline" --detailed
+```
+
+#### Streamlit Web Interface
+The web interface automatically uses the detailed format by default. The summary will display:
+- 🏢 Meeting Overview
+- 💬 Discussion Highlights  
+- ✅ Decisions Made
+- 📋 Action Items
+- 🔄 Next Steps/Follow-Up
+
+### Output Formats
+The detailed format is supported in all output formats:
+- **JSON**: Complete structured data with all sections
+- **DOCX**: Professional Word document with proper headings
+- **TXT**: Plain text with clear section divisions
+
+### Backward Compatibility
+- Existing scripts and integrations continue to work
+- The simple format is still available using `--no-detailed`
+- All output formats support both detailed and simple modes
+
+## Dynamic Model Switching
+
+The application now supports **dynamic model switching** directly from the user interface, allowing you to change Ollama models without restarting the application.
+
+### Features
+
+- **🔄 Model Discovery**: Automatically detects available models from your Ollama instance
+- **✅ Model Validation**: Test model availability before using them
+- **ℹ️ Model Information**: View detailed information about each model (size, family, format)
+- **🎯 Smart Recommendations**: Get model suggestions based on use case
+- **💾 Configuration Persistence**: Save your preferred model settings
+
+### Using Model Switching
+
+#### Streamlit Web Interface
+1. **Open Settings**: Look for the "Settings" section in the sidebar
+2. **Select Model**: Choose from the dropdown of available models or enter a custom model name
+3. **Test Model**: Click the "Test" button to verify model availability
+4. **View Details**: Click the "ℹ️" button to see model information
+5. **Save Configuration**: Click "Save Configuration" to persist your settings
+
+#### Popular Model Recommendations
+
+**💼 Business Meetings:**
+- `gemma3:12b` - Excellent for formal meeting minutes
+- `llama3.2:8b` - Good balance of speed and quality
+- `qwen2.5:7b` - Strong multilingual support
+
+**⚡ Quick Summaries:**
+- `llama3.2:3b` - Fast processing
+- `gemma3:3b` - Good quality, small size
+- `phi3:3.8b` - Efficient for simple tasks
+
+**🌍 Multilingual Content:**
+- `qwen2.5:7b` - Best for Chinese/English
+- `gemma3:12b` - Good multilingual support
+- `mistral:7b` - European languages
+
+### Model Management Tips
+
+- **Installing Models**: Use `ollama pull <model-name>` to install new models
+- **Model Size**: Larger models (7B+) generally provide better quality but are slower
+- **System Resources**: Consider your available RAM when choosing models
+- **Use Cases**: Match model capabilities to your specific needs (speed vs. quality)
+
+### Example Output
+With focus areas `["budget", "timeline"]`, a summary might emphasize:
+> "The conversation centered on budget allocation ($50,000 available) and timeline constraints (3-week deadline)..."
+
+Without focus areas, the same conversation might produce a more general summary covering all topics equally.
 
 ## How It Works
 
