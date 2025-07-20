@@ -26,7 +26,7 @@ A powerful tool that records conversations, transcribes them with speaker recogn
 ### Hardware Requirements
 - Microphone (for audio recording)
 - Speakers/Headphones (for audio playback)
-- Minimum 8GB RAM
+- Minimum 16GB RAM
 - 50GB free disk space
 - CPU: Dual-core processor or better
 
@@ -98,7 +98,7 @@ This ensures optimal GPU memory usage and prevents memory leaks when switching b
      ```
      HUGGINGFACE_TOKEN=your_huggingface_token  # Optional, for speaker diarization
      OLLAMA_HOST=http://localhost:11434  # Ollama API endpoint
-     OLLAMA_MODEL=gemma:12b  # Default model for summarization
+     OLLAMA_MODEL=gemma3:12b  # Default model for summarization
      ```
 
 ### Environment Setup
