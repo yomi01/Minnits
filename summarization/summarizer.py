@@ -712,8 +712,18 @@ def register_signal_handlers():
     except Exception as e:
         logger.warning(f"Could not register signal handlers: {e}")
 
-# Register cleanup function to run at exit (safe to do at module level)
-atexit.register(ConversationSummarizer.cleanup_all_instances)
+# Safe cleanup function for atexit registration
+def _safe_cleanup_all():
+    """Safe wrapper for cleanup_all_instances that handles scope issues"""
+    try:
+        if 'ConversationSummarizer' in globals():
+            ConversationSummarizer.cleanup_all_instances()
+    except Exception as e:
+        # Use print instead of logger since logging might not be available during shutdown
+        print(f"Warning: Error during atexit cleanup: {e}")
+
+# Register cleanup function to run at exit
+atexit.register(_safe_cleanup_all)
 
 
 if __name__ == "__main__":
