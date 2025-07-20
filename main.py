@@ -23,12 +23,20 @@ def signal_handler(signum, frame):
     cleanup_on_exit()
     sys.exit(0)
 
-# Register signal handlers and exit cleanup
-signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
-signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
-if hasattr(signal, 'SIGBREAK'):  # Windows
-    signal.signal(signal.SIGBREAK, signal_handler)
-atexit.register(cleanup_on_exit)
+def register_main_signal_handlers():
+    """Register signal handlers for the main application"""
+    try:
+        # Register signal handlers and exit cleanup
+        signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+        signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
+        if hasattr(signal, 'SIGBREAK'):  # Windows
+            signal.signal(signal.SIGBREAK, signal_handler)
+        atexit.register(cleanup_on_exit)
+    except Exception as e:
+        print(f"Warning: Could not register signal handlers: {e}")
+
+# Register cleanup and signal handlers
+register_main_signal_handlers()
 
 def main():
     """

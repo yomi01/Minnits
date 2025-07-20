@@ -17,13 +17,14 @@ class ConversationSummarizer:
     # Class variable to keep track of all instances for cleanup
     _instances = []
     
-    def __init__(self, ollama_host: str = "http://localhost:11434", ollama_model: str = "gemma3:12b"):
+    def __init__(self, ollama_host: str = "http://localhost:11434", ollama_model: str = "gemma3:12b", register_signals: bool = False):
         """
         Initialize the conversation summarizer using Ollama with LangChain
         
         Args:
             ollama_host: URL for Ollama API (default: http://localhost:11434)
             ollama_model: Ollama model name (default: gemma3:12b)
+            register_signals: Whether to register signal handlers for cleanup (default: False)
         """
         self.ollama_host = ollama_host.rstrip('/')  # Remove trailing slash if present
         self.ollama_model = ollama_model
@@ -32,6 +33,10 @@ class ConversationSummarizer:
         
         # Register this instance for cleanup
         ConversationSummarizer._instances.append(self)
+        
+        # Optionally register signal handlers
+        if register_signals:
+            register_signal_handlers()
         
         # Initialize LangChain Ollama LLM
         try:
@@ -684,17 +689,28 @@ Important: Maintain the exact format with SUMMARY: and ACTION POINTS: headings. 
 # Signal handler for graceful shutdown
 def signal_handler(signum, frame):
     """Handle shutdown signals to clean up resources"""
-    logger.info(f"Received signal {signum}, cleaning up...")
-    ConversationSummarizer.cleanup_all_instances()
-    exit(0)
+    try:
+        logger.info(f"Received signal {signum}, cleaning up...")
+        ConversationSummarizer.cleanup_all_instances()
+    except Exception as e:
+        logger.error(f"Error during signal cleanup: {e}")
+    finally:
+        import sys
+        sys.exit(0)
 
-# Register signal handlers for graceful shutdown
-signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
-signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
-if hasattr(signal, 'SIGBREAK'):  # Windows
-    signal.signal(signal.SIGBREAK, signal_handler)
+def register_signal_handlers():
+    """Register signal handlers for graceful shutdown (optional)"""
+    try:
+        # Register signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+        signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
+        if hasattr(signal, 'SIGBREAK'):  # Windows
+            signal.signal(signal.SIGBREAK, signal_handler)
+        logger.debug("Signal handlers registered successfully")
+    except Exception as e:
+        logger.warning(f"Could not register signal handlers: {e}")
 
-# Register cleanup function to run at exit
+# Register cleanup function to run at exit (safe to do at module level)
 atexit.register(ConversationSummarizer.cleanup_all_instances)
 
 

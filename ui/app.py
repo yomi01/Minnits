@@ -96,12 +96,25 @@ def signal_handler(signum, frame):
     cleanup_on_exit()
     sys.exit(0)
 
-# Register signal handlers and exit cleanup
-signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
-signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
-if hasattr(signal, 'SIGBREAK'):  # Windows
-    signal.signal(signal.SIGBREAK, signal_handler)
-atexit.register(cleanup_on_exit)
+def register_ui_signal_handlers():
+    """Register signal handlers for the UI application"""
+    try:
+        # Register signal handlers and exit cleanup
+        signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+        signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
+        if hasattr(signal, 'SIGBREAK'):  # Windows
+            signal.signal(signal.SIGBREAK, signal_handler)
+        atexit.register(cleanup_on_exit)
+    except Exception as e:
+        # In UI mode, we don't want to print errors directly, just log them
+        try:
+            import logging
+            logging.warning(f"Could not register signal handlers: {e}")
+        except:
+            pass  # Ignore if logging isn't available
+
+# Register cleanup and signal handlers
+register_ui_signal_handlers()
 
 # Helper functions
 def get_binary_file_downloader_html(bin_file, file_label='File'):
