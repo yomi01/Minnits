@@ -13,8 +13,8 @@ def cleanup_on_exit():
     try:
         from summarization.summarizer import ConversationSummarizer
         ConversationSummarizer.cleanup_all_instances()
-    except ImportError:
-        pass  # Module might not be imported yet
+    except Exception:
+        pass  # Ignore errors during cleanup (module might not be imported or available)
 
 # Signal handler for graceful shutdown
 def signal_handler(signum, frame):

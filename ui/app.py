@@ -541,13 +541,17 @@ def main():
             with st.spinner("Freeing GPU memory..."):
                 try:
                     cleanup_summarizers()
-                    # Also cleanup any global instances
-                    from summarization.summarizer import ConversationSummarizer
-                    ConversationSummarizer.cleanup_all_instances()
                     st.success("✅ GPU memory freed successfully!")
                     st.rerun()  # Refresh to update the active instances count
                 except Exception as e:
                     st.error(f"❌ Error freeing GPU memory: {e}")
+                
+                # Also cleanup any global instances
+                try:
+                    from summarization.summarizer import ConversationSummarizer
+                    ConversationSummarizer.cleanup_all_instances()
+                except Exception:
+                    pass  # Ignore global cleanup errors
     
     # Main content area
     tab1, tab2, tab3, tab4 = st.tabs(["Record", "Upload", "Transcribe", "Summarize"])

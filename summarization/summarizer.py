@@ -691,7 +691,9 @@ def signal_handler(signum, frame):
     """Handle shutdown signals to clean up resources"""
     try:
         logger.info(f"Received signal {signum}, cleaning up...")
-        ConversationSummarizer.cleanup_all_instances()
+        # Use globals() to access the ConversationSummarizer class safely
+        if 'ConversationSummarizer' in globals():
+            ConversationSummarizer.cleanup_all_instances()
     except Exception as e:
         logger.error(f"Error during signal cleanup: {e}")
     finally:
